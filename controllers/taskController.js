@@ -1,109 +1,119 @@
-// controllers/taskController.js
-const Task = require('../models/tasks');
+const Task = require("../models/tasks");
 
 // Create Task
-exports.createTask = async (req, res) => {
+exports.createTask = async (req, res, next) => {
   try {
-    const task = new Task(req.body);
+    const task = new Task({
+      ...req.body,
+      userId: req.userId,   // attach logged-in user
+    });
+
     const saved = await task.save();
     res.status(201).json(saved);
   } catch (error) {
-    res.status(500).json({ message: "Error creating task" });
+    next(error);
   }
 };
 
 // Get Tasks (with optional status filter)
-exports.getTasks = async (req, res) => {
+exports.getTasks = async (req, res, next) => {
   try {
     const { status } = req.query;
-    let filter = {};
+    let filter = { userId: req.userId }; // only this user's tasks
 
     if (status) filter.status = status;
 
-    const tasks = await Task.find(filter).sort({ createdAt: -1 });
+    const tasks = await Task.find(filter).sort({ createdAt: -1 }).lean();
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching tasks" });
+    next(error);
   }
 };
 
 // Get Task by ID
-exports.getTaskById = async (req, res) => {
+exports.getTaskById = async (req, res, next) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findOne({
+      _id: req.params.id,
+      userId: req.userId,
+    });
 
-    if (!task)
-      return res.status(404).json({ message: "Task not found" });
+    if (!task) return res.status(404).json({ message: "Task not found" });
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching task" });
+    next(error);
   }
 };
 
 // Update Task
-exports.updateTask = async (req, res) => {
+exports.updateTask = async (req, res, next) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       req.body,
       { new: true, runValidators: true }
     );
 
-    if (!updatedTask)
-      return res.status(404).json({ message: "Task not found" });
+    if (!updatedTask) return res.status(404).json({ message: "Task not found" });
 
     res.json(updatedTask);
   } catch (error) {
-    res.status(500).json({ message: "Error updating task" });
+    next(error);
   }
 };
 
 // Delete Task
-exports.deleteTask = async (req, res) => {
+exports.deleteTask = async (req, res, next) => {
   try {
-    const deleted = await Task.findByIdAndDelete(req.params.id);
+    const deleted = await Task.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId,
+    });
 
-    if (!deleted)
-      return res.status(404).json({ message: "Task not found" });
+    if (!deleted) return res.status(404).json({ message: "Task not found" });
 
     res.json({ message: "Task deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting task" });
+    next(error);
   }
 };
 
 // Mark as Done (status → Completed)
-exports.markAsDone = async (req, res) => {
+exports.markAsDone = async (req, res, next) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       { status: "Completed" },
       { new: true }
     );
 
-    if (!updatedTask)
-      return res.status(404).json({ message: "Task not found" });
+    if (!updatedTask) return res.status(404).json({ message: "Task not found" });
 
     res.json(updatedTask);
   } catch (error) {
-    res.status(500).json({ message: "Error marking task as done" });
+    next(error);
   }
 };
 
 
-exports.getNotifications = async (req, res) => {
+// Get notifications (overdue + tasks due in next 24 hours)
+exports.getNotifications = async (req, res, next) => {
   try {
     const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours ahead
 
     const tasks = await Task.find({
-      dueDate: { $lte: oneHourLater, $gte: now },
+      userId: req.userId,
       status: { $ne: "Completed" },
-    }).sort({ dueDate: 1 });
+      dueDate: { $lte: oneDayLater }, // due in next 24 hours or overdue
+    })
+      .sort({ dueDate: 1 })
+      .lean();
 
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching notifications" });
+    next(error);
   }
 };
+

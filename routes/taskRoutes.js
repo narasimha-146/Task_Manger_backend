@@ -1,6 +1,9 @@
 // routes/taskRoutes.js
 const express = require("express");
 const router = express.Router();
+const auth = require("../middleware/auth");
+
+
 const {
   createTask,
   getTasks,
@@ -12,14 +15,12 @@ const {
 } = require("../controllers/taskController");
 
 
-router.get("/tasks", getTasks);            // List tasks + filters
-router.post("/tasks", createTask);         // Create
-router.get("/tasks/:id", getTaskById);     // Get single task
-router.put("/tasks/:id", updateTask);      // Edit
-router.delete("/tasks/:id", deleteTask);   // Delete
-router.patch("/tasks/:id/done", markAsDone); // Mark Completed
-
-
-router.get("/notifications", getNotifications);
+router.get("/tasks", auth, getTasks);
+router.post("/tasks", auth, createTask);
+router.get("/tasks/:id", auth, getTaskById);
+router.put("/tasks/:id", auth, updateTask);
+router.delete("/tasks/:id", auth, deleteTask);
+router.patch("/tasks/:id/done", auth, markAsDone);
+router.get("/notifications", auth, getNotifications);
 
 module.exports = router;
