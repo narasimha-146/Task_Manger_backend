@@ -11,12 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ methods: ['GET', 'POST', 'PUT', 'DELETE'] }));
+app.use(cors({ methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] }));
 app.use(express.json());
 app.use(logger);
 
 // Routes
-app.use('/api/tasks', taskRoutes);
+app.use('/api', taskRoutes);
 
 // Error handling
 app.use(notFound);
